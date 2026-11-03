@@ -368,8 +368,7 @@ overview_ui <- navbarPage(
       bslib::navset_card_tab(
         bslib::nav_panel("Distributions",
           tags$h3("Explore Distributions of Solutes and Catchment Characteristics"),
-          htmltools::p("Please select a solute or catchment characteristic from the dropdown list below to explore distributions of
-                              the selected variable across the dataset. All solute concentrations are in mg L⁻¹."),
+          htmltools::p("Choose a solute or catchment characteristic to see its distribution across sites."),
           analysis_layout(
             analysis_controls(
               selectInput(inputId = "driver_solute_dropdown",
