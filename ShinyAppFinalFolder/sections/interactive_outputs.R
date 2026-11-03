@@ -78,7 +78,7 @@ overview_server <- function(input, output, session) {
       source_link(product_urls[[label]], label)
     }, character(1))
     DT::datatable(sources, rownames = FALSE, escape = setdiff(names(sources), c("Data product", "Variable")),
-      options = list(searching = FALSE, paging = FALSE, info = FALSE, scrollX = TRUE,
+      options = list(searching = FALSE, paging = FALSE, lengthChange = FALSE, info = FALSE, scrollX = TRUE,
         order = list(), createdRow = highlight))
   }, server = FALSE)
 
@@ -288,7 +288,7 @@ overview_server <- function(input, output, session) {
     coverage_column <- match("Solute Coverage", names(sites)) - 1L
     count_column <- match("Solute Count", names(sites)) - 1L
     DT::datatable(sites, rownames = FALSE, escape = setdiff(names(sites), c("Solute Coverage", "Source Links")),
-      options = list(scrollX = TRUE, pageLength = 50, order = list(list(0, "asc"), list(2, "asc")),
+      options = list(scrollX = TRUE, pageLength = 50, lengthChange = FALSE, order = list(list(0, "asc"), list(2, "asc")),
         columnDefs = list(list(targets = coverage_column, orderData = count_column),
           list(targets = count_column, visible = FALSE, searchable = FALSE)))) |>
       DT::formatRound(c("Latitude (°)", "Longitude (°)"), digits = 0)
@@ -463,24 +463,23 @@ overview_server <- function(input, output, session) {
     })
   }
 
-  # a missing color value does not exclude a site from the scatterplot
+  # plot only sites with values for both axes and the selected color field
   relationship_points <- reactive({
     req(input$x_axis_dropdown, input$y_axis_dropdown)
     style <- exploration_map_style()
     sites <- filtered_exploration()
     x <- sites[[input$x_axis_dropdown]]
     y <- sites[[input$y_axis_dropdown]]
-    keep <- is.finite(x) & is.finite(y)
-    values <- sites[[style$field]][keep]
+    values <- sites[[style$field]]
     available <- if (is.numeric(values)) is.finite(values) else !is.na(values) & nzchar(as.character(values))
-    colors <- rep(app_missing, length(values))
-    if (any(available)) colors[available] <- style$palette(values[available])
+    keep <- is.finite(x) & is.finite(y) & available
+    colors <- if (any(keep)) style$palette(values[keep]) else character()
     data.frame(x = x[keep], y = y[keep], color = colors)
   })
 
   output$relationship_site_count <- renderText({
     paste(whole_number(nrow(relationship_points())), "of",
-      whole_number(nrow(filtered_exploration())), "matching sites have data for both axes")
+      whole_number(nrow(filtered_exploration())), "matching sites have data for both axes and the color field")
   })
 
   show_regression <- reactiveVal(FALSE)
@@ -490,7 +489,7 @@ overview_server <- function(input, output, session) {
 
   output$driver_solute_plot <- renderPlot({
     points <- relationship_points()
-    validate(need(nrow(points) > 0L, "No matching sites have data for both axes."))
+    validate(need(nrow(points) > 0L, "No matching sites have data for both axes and the color field."))
     plot <- ggplot(points, aes(x, y)) +
       geom_point(aes(colour = color)) +
       scale_colour_identity() +
@@ -501,8 +500,8 @@ overview_server <- function(input, output, session) {
     if (show_regression() && nrow(points) >= 3L && length(unique(points$x)) > 1L) {
       plot <- plot +
         geom_smooth(method = "lm", se = FALSE, colour = app_ink) +
-        ggpmisc::stat_poly_eq(aes(label = after_stat(whole_fit_label(b_0, b_1, r.squared))),
-          output.type = "numeric", parse = FALSE, family = "Arial", size = 7, colour = app_ink)
+        ggpmisc::stat_poly_eq(aes(label = after_stat(fit_label(b_0, b_1, r.squared))),
+          output.type = "numeric", parse = FALSE, family = app_font, size = 7, colour = app_ink)
     }
     plot
   })
@@ -518,10 +517,10 @@ overview_server <- function(input, output, session) {
 
   comparison_map_sites <- reactive({
     sites <- exploration
-    if (isTruthy(input$comparison_country)) {
+    if (isTruthy(input$comparison_country) && input$comparison_country != "all") {
       sites <- sites[which(sites$Country == input$comparison_country), , drop = FALSE]
     }
-    if (isTruthy(input$comparison_network)) {
+    if (isTruthy(input$comparison_network) && input$comparison_network != "all") {
       sites <- sites[which(sites[["Observation Network"]] == input$comparison_network), , drop = FALSE]
     }
     sites <- filter_site_ranges(sites, comparison_filters(), "comparison_filter_")
@@ -560,13 +559,31 @@ overview_server <- function(input, output, session) {
 
   output$comparison_selection <- renderUI({
     sites <- comparison_selection()
+    count <- tags$p(paste(length(sites), "of 3 sites selected"))
+    if (!length(sites)) return(count)
+
     colors <- comparison_colors()
-    tags$div(class = "map-legend",
-      tags$p(paste(length(sites), "of 3 sites selected")),
-      if (length(sites)) tags$ul(lapply(sites, function(site) {
-        tags$li(tags$span(class = "map-legend-swatch", `aria-hidden` = "true",
-          style = paste0("background-color: ", colors[[site]])), site)
-      }))
+    rows <- comparison_map_sites()
+    rows <- rows[match(sites, rows[["Stream Name"]]), , drop = FALSE]
+    # show the same site information for every selection, regardless of the plot
+    headings <- c("Stream name", "Observation network", "Country")
+    tags$div(count,
+      tags$div(class = "table-responsive",
+        tags$table(class = "table table-sm",
+          `aria-label` = "Selected sites",
+          tags$thead(tags$tr(lapply(headings, function(label) tags$th(scope = "col", label)))),
+          tags$tbody(lapply(seq_along(sites), function(index) {
+            site <- sites[index]
+            tags$tr(
+              tags$th(scope = "row",
+                tags$span(class = "map-legend-swatch", `aria-hidden` = "true",
+                  style = paste0("background-color: ", colors[[site]])), site),
+              tags$td(as.character(rows[["Observation Network"]][index])),
+              tags$td(as.character(rows$Country[index]))
+            )
+          }))
+        )
+      )
     )
   })
 
@@ -690,95 +707,80 @@ overview_server <- function(input, output, session) {
       labs(x = "Log[discharge (m³ s⁻¹)]", y = paste0("Log[concentration (", solute_units(input$button_solute4), ")]"), colour = "Site") +
       scale_x_continuous(labels = whole_number) + scale_y_continuous(labels = whole_number) +
       geom_smooth(se = FALSE, method = "lm") +
-      ggpmisc::stat_poly_eq(aes(label = after_stat(whole_fit_label(b_0, b_1, r.squared))),
-        output.type = "numeric", parse = FALSE, family = "Arial", size = 7) +
+      ggpmisc::stat_poly_eq(aes(label = after_stat(fit_label(b_0, b_1, r.squared))),
+        output.type = "numeric", parse = FALSE, family = app_font, size = 7) +
       app_plot_theme() + comparison_color_scale()
   })
 
   # ---- site specific time series panel server ----
-
-  # list matching sites in the selected country
-  observe({
-
-    req(input$app_tab == "Site Specific Time Series", input$dropdown_country)
-    sites_LTER <- master_chem %>%
-      filter(Country == input$dropdown_country,
-        Stream_Name %in% filtered_exploration()[["Stream Name"]]) %>%
-      distinct(Stream_Name)
-
-    selected <- intersect(isolate(input$dropdown_site), sites_LTER$Stream_Name)
-    updateSelectInput(session, "dropdown_site", choices = sites_LTER$Stream_Name,
-      selected = if (length(selected)) selected else head(sites_LTER$Stream_Name, 1))
-
-  })
-
-  # keep the selected solutes for the site time series
-  chem_v2 <- reactive({
-    master_chem %>%
-      dplyr::filter(variable %in% input$button_spp)
-  })
-
-  # then filter solute information by selected site
-  chem_actual <- reactive({
-
-    chem_v2() %>%
-      dplyr::filter(Stream_Name %in% input$dropdown_site,
-        Stream_Name %in% filtered_exploration()[["Stream Name"]])
-  })
-
-  min_date <- reactive({
-    chem_actual() %>%
-      select("min") %>%
-      distinct()
-  })
-
-  max_date <- reactive({
-    chem_actual() %>%
-      select("max") %>%
-      distinct()
-  })
-
-  observe({
-
-    req(input$app_tab == "Site Specific Time Series", nrow(chem_actual()) > 0)
-    updateSliderInput(session, "xslider", min = as.Date(min_date()$min),
-      max = as.Date(max_date()$max), value = c(as.Date(min_date()$min), as.Date(max_date()$max)))
-
-  })
-
-  # remember whether to show the seasonal or full time series
-  # here we will use it to display either the full time series or seasonal data
-  whichplot <- reactiveVal(TRUE)
-
-  # define the two plots
-  # first full time series
-  all_data <- reactive(ggplot(chem_actual(), aes(date, value, col = solute_notation(variable))) + labs(x = "Date", y = "Concentration (mg L⁻¹)", col = "Solute") +
-    geom_point() + app_plot_theme() + theme(legend.position = "bottom") + app_category_scale() +
-    xlim(input$xslider))
-
-  # then seasonal data
-  seasonal_data <- reactive(ggplot(chem_actual(), aes(factor(month(date)), value, fill = solute_notation(variable))) +
-    labs(x = "Month", y = "Concentration (mg L⁻¹)", fill = "Solute") +
-    geom_boxplot() + app_plot_theme() + theme(legend.position = "bottom") + app_category_scale())
-
-  # choose the time series view based on the toggle
-  observeEvent(input$seasonal_button, {
-    whichplot(!whichplot())
-  })
-
-  which_graph <- reactive({
-    if (whichplot()) {
-      all_data()
-    } else {
-      seasonal_data()
+  time_series_sites <- reactive({
+    sites <- filtered_exploration()
+    if (isTruthy(input$time_series_network) && input$time_series_network != "all") {
+      sites <- sites[which(sites[["Observation Network"]] == input$time_series_network), , drop = FALSE]
     }
+    if (isTruthy(input$dropdown_country) && input$dropdown_country != "all") {
+      sites <- sites[which(sites$Country == input$dropdown_country), , drop = FALSE]
+    }
+    intersect(summaries$chemistry_sites, sites[["Stream Name"]])
   })
 
-  # this renders the plot output based on the whichplot selection above (annual vs seasonal)
+  observe({
+    req(input$app_tab == "Site Specific Time Series")
+    sites <- time_series_sites()
+    selected <- intersect(isolate(input$dropdown_site), sites)
+    updateSelectInput(session, "dropdown_site", choices = sites,
+      selected = if (length(selected)) selected else head(sites, 1))
+  })
+
+  # use only the chosen site and solutes with valid observations
+  chem_actual <- reactive({
+    req(input$dropdown_site, input$dropdown_site %in% time_series_sites(), input$button_spp)
+    dplyr::filter(master_chem, Stream_Name == input$dropdown_site,
+      variable %in% input$button_spp, is.finite(value), !is.na(date))
+  })
+
+  observe({
+    req(input$app_tab == "Site Specific Time Series")
+    rows <- chem_actual()
+    req(nrow(rows) > 0L)
+    dates <- c(min(rows$min), max(rows$max))
+    if (dates[1] == dates[2]) dates[2] <- dates[2] + 1
+    updateSliderInput(session, "xslider", min = dates[1], max = dates[2], value = dates)
+  })
+
+  show_site_time_series <- reactiveVal(TRUE)
+  observeEvent(input$seasonal_button, {
+    show_site_time_series(!show_site_time_series())
+  })
+
+  site_time_series_rows <- reactive({
+    rows <- chem_actual()
+    if (isTRUE(input$site_time_series_log)) rows <- rows[rows$value > 0, , drop = FALSE]
+    rows
+  })
+
   output$timeseries_out <- renderPlot({
+    validate(need(length(time_series_sites()), "No sites match the selected filters."))
+    rows <- site_time_series_rows()
+    validate(need(nrow(rows) > 0L,
+      if (isTRUE(input$site_time_series_log)) "No positive concentrations to plot." else "No data for the selected solutes."))
 
-    which_graph() + scale_y_continuous(labels = whole_number)
+    if (show_site_time_series()) {
+      plot <- ggplot(rows, aes(date, value, colour = solute_notation(variable))) +
+        geom_point() + labs(x = "Date", colour = "Solute")
+      if (length(input$xslider) == 2L) plot <- plot + xlim(input$xslider)
+    } else {
+      plot <- ggplot(rows, aes(factor(month(date)), value, fill = solute_notation(variable))) +
+        geom_boxplot() + labs(x = "Month", fill = "Solute")
+    }
 
+    concentration_scale <- if (isTRUE(input$site_time_series_log)) {
+      scale_y_log10(labels = scales::label_log())
+    } else {
+      scale_y_continuous(labels = whole_number)
+    }
+    plot + labs(y = "Concentration (mg L⁻¹)") + concentration_scale +
+      app_plot_theme() + theme(legend.position = "bottom") + app_category_scale()
   })
 
 } # close server function

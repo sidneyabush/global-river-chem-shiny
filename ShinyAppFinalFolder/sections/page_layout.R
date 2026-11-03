@@ -4,12 +4,17 @@ overview_ui <- navbarPage(
   id = "app_tab",
   windowTitle = "Global River Chemistry",
   theme = bslib::bs_theme(version = 5, primary = app_blue, secondary = app_teal,
-    fg = app_ink, bg = "#f4f7f6", base_font = "Arial"),
+    fg = app_ink, bg = "#f4f7f6", base_font = app_font, heading_font = app_font),
 
   header = tags$head(tags$style(HTML("
-    body { background: #f4f7f6; color: #24323d; font-family: Arial, sans-serif; }
-    .leaflet-container, .leaflet-control, .leaflet-popup, .irs, .selectize-dropdown, .dataTables_wrapper {
-      font-family: Arial, sans-serif; }
+    body { background: #f4f7f6; color: #24323d; }
+    button, input, select, textarea,
+    .selectize-input, .selectize-dropdown, .selectize-dropdown .option,
+    .irs, .irs-min, .irs-max, .irs-from, .irs-to, .irs-single, .irs-grid-text,
+    .dataTables_wrapper, .dt-container, table.dataTable,
+    .leaflet-container, .leaflet-control, .leaflet-popup, .leaflet-tooltip {
+      font-family: var(--bs-body-font-family); }
+    .shiny-input-container .control-label { font-weight: 700; }
     .navbar { background: #fff !important; border-bottom: 1px solid #d7e3ea; }
     .navbar .nav-link { color: #334b59; }
     .navbar .nav-link.active { color: #174e68; background: #e8f2f3; border-radius: .55rem; }
@@ -326,15 +331,15 @@ overview_ui <- navbarPage(
         bslib::card_header("Site Directory"),
         bslib::layout_column_wrap(width = "210px",
           selectInput("site_network", width = "100%", tags$strong("Observation network:"),
-            choices = c("All networks" = "", sort(levels(all_drivers_table[["Observation Network"]])))),
+            choices = c("All networks" = "all", sort(levels(all_drivers_table[["Observation Network"]])))),
           selectInput("site_country", width = "100%", tags$strong("Country:"),
-            choices = c("All countries" = "", sort(levels(all_drivers_table$Country))))
+            choices = c("All countries" = "all", sort(levels(all_drivers_table$Country))))
         ),
         uiOutput("site_network_summary"),
         bslib::layout_column_wrap(width = "210px",
           tags$div(
             selectizeInput("site_solutes", width = "100%", tags$strong("Has measurements for:"),
-              choices = solute_choices[order(names(solute_choices))],
+              choices = solute_choices,
               multiple = TRUE, options = list(placeholder = "Select solutes")),
             tags$p(class = "small", "Sites must have measurements for every selected solute.")
           ),
@@ -380,7 +385,7 @@ overview_ui <- navbarPage(
         ),
         bslib::nav_panel("Relationships",
           tags$h3("Explore Relationships between Solutes and Catchment Characteristics"),
-          htmltools::p("Choose variables for the two axes. Points use the map colors above. Gray points have no value for the color field."),
+          htmltools::p("Choose variables for the two axes. The plot uses the map colors above and shows only sites with data for both axes and the color field."),
           analysis_layout(
             analysis_controls(
               selectInput(inputId = "x_axis_dropdown",
@@ -408,9 +413,9 @@ overview_ui <- navbarPage(
         bslib::card_header("Choose sites to compare"),
         tags$div(class = "map-with-controls",
           tags$aside(`aria-label` = "Site comparison filters",
-            selectInput("comparison_country", "Country:",
+            selectInput("comparison_country", "Country (optional):", selected = "all",
               choices = c("All countries" = "", sort(unique(as.character(exploration$Country))))),
-            selectInput("comparison_network", "Observation network:",
+            selectInput("comparison_network", "Observation network (optional):", selected = "all",
               choices = c("All networks" = "", sort(unique(as.character(exploration[["Observation Network"]]))))),
             selectizeInput("comparison_filters", "Choose up to three numeric filters:",
               choices = exploration_filter_choices, multiple = TRUE,
@@ -467,47 +472,30 @@ overview_ui <- navbarPage(
 
   # ---- time series panel ----
   tabPanel("Site Specific Time Series",
-
     fluidPage(
-      # first set of plots to look at solute time series
       tags$h2("Compare Multi-Solute Time Series at One Site"),
-      htmltools::p("Using the buttons below, select multiple solutes to time series solute concentrations at one site. Select one site using the Country
-                          and Site menus. Use the toggle to switch between
-                          individual measurements and monthly concentration distributions."),
-
-      # side bar layout allows you to add box on the side of the page, good for plotting
+      tags$p("Narrow the Site menu by observation network and country, then choose one or more solutes. Switch between individual measurements and monthly distributions. The log scale shows positive concentrations only."),
       analysis_layout(
         analysis_controls(
-          # select input creates a dropdown menu
-          # this lists all countries in the master chemistry data
-          selectInput(inputId = "dropdown_country",
-            label = "Country",
-            choices = chemistry_countries, selected = "United States"),
-
-          # this takes the output from the observation network and lists all sites in the selected country
-          # see input "dropdown_site" in server below
-          selectInput(inputId = "dropdown_site",
-            label = "Site",
-            choices = NULL),
-
-          # choose one or more solutes for this site
-          checkboxGroupInput(inputId = "button_spp",
-            label = "Solute",
-            choices = solute_choices, selected = "Ca"),
-
-          # switch between the full and seasonal time series
-          actionButton("seasonal_button", "Switch time-series view")
+          selectInput("time_series_network", "Observation network:", selected = "all",
+            choices = c("All networks" = "all",
+              sort(unique(as.character(exploration[["Observation Network"]][
+                exploration[["Stream Name"]] %in% summaries$chemistry_sites]))))),
+          selectInput("dropdown_country", "Country:", selected = "United States",
+            choices = c("All countries" = "all", chemistry_countries)),
+          selectInput("dropdown_site", "Site:", choices = NULL),
+          checkboxGroupInput("button_spp", "Solutes:", choices = solute_choices, selected = "Ca"),
+          actionButton("seasonal_button", "Switch time-series view"),
+          bslib::input_switch("site_time_series_log", "Log scale for concentration", value = FALSE)
         ),
-
-        # show the plot beside its controls
         tagList(
-          sliderInput("xslider", label = "Select Date Range of Interest",
+          sliderInput("xslider", "Date range",
             min = chemistry_dates[1], max = chemistry_dates[2], value = chemistry_dates),
           plotOutput("timeseries_out")
         )
       )
-    ) # close fluid page
-  ), # close panel
+    )
+  ),
 
   # ---- project history ----
   tabPanel("Project History",

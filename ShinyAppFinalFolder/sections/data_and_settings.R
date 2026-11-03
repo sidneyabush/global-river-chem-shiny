@@ -26,6 +26,7 @@ solute_choices <- c(
   "Calcium (Ca)" = "Ca", "Magnesium (Mg)" = "Mg", "Potassium (K)" = "K",
   "Sodium (Na)" = "Na", "Chloride (Cl)" = "Cl", "Sulfate (SO₄)" = "SO4"
 )
+solute_choices <- solute_choices[order(names(solute_choices))]
 master_chem_summary$variable <- factor(master_chem_summary$variable,
   levels = rev(solute_observation_totals$variable))
 
@@ -273,6 +274,7 @@ site_map <- leaflet(all_drivers_map,
   setMaxBounds(lng1 = -540, lat1 = -85.051129, lng2 = 540, lat2 = 85.051129)
 
 # ---- shared colors and plot style ----
+app_font <- "Arial"
 app_ink <- "#24323d"
 app_blue <- "#2f6c8f"
 app_teal <- "#1b6261"
@@ -304,14 +306,14 @@ whole_number <- function(values) {
   formatC(round(values) + 0, format = "f", digits = 0, big.mark = ",")
 }
 
-# show fit as a whole percentage while keeping the fitted line at full precision
-whole_fit_label <- function(intercept, slope, fit) {
+# show r squared as a decimal and keep the fitted line at full precision
+fit_label <- function(intercept, slope, fit) {
   paste0("y = ", whole_number(intercept), ifelse(slope < 0, " − ", " + "),
-    whole_number(abs(slope)), "x; R² = ", whole_number(100 * fit), "%")
+    whole_number(abs(slope)), "x · R² = ", sprintf("%.2f", fit))
 }
 
 app_plot_theme <- function() {
-  theme_minimal(base_size = 14, base_family = "Arial") +
+  theme_minimal(base_size = 14, base_family = app_font) +
     theme(text = element_text(colour = app_ink),
       axis.text = element_text(colour = app_ink),
       axis.line.x.bottom = element_line(colour = app_ink),
