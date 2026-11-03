@@ -1,5 +1,7 @@
 # Global River Chemistry Shiny app
 
+[Open the live app](https://sidneyabush.shinyapps.io/global-river-chem-shiny/)
+
 Explore river chemistry, watershed characteristics, and concentration–discharge relationships.
 
 ## Run locally
