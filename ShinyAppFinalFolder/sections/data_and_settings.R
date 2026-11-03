@@ -227,6 +227,8 @@ map_color_options <- setdiff(names(exploration), c("Stream Name", "Latitude", "L
 quant_drivers <- setdiff(names(exploration)[vapply(exploration, is.numeric, logical(1))],
   c("Latitude", "Longitude"))
 
+distribution_limit <- 4L
+
 # use the same field names for the filter dropdown and its controls
 exploration_filter_choices <- driver_choices(c("Latitude", "Longitude", quant_drivers))
 exploration_filter_labels <- unlist(unname(exploration_filter_choices))

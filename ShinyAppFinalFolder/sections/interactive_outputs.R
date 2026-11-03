@@ -418,7 +418,7 @@ overview_server <- function(input, output, session) {
   outputOptions(output, "exploration_site_count", suspendWhenHidden = FALSE)
 
   histogram_variables <- reactive({
-    head(intersect(input$driver_solute_dropdown, quant_drivers), 3)
+    head(intersect(input$driver_solute_dropdown, quant_drivers), distribution_limit)
   })
 
   # keep a separate axis and sample size for each selected variable
@@ -439,7 +439,7 @@ overview_server <- function(input, output, session) {
     bslib::layout_column_wrap(width = "280px", !!!panels)
   })
 
-  for (index in seq_len(3)) {
+  for (index in seq_len(distribution_limit)) {
     local({
       slot <- index
       output[[paste0("histogram_count_", slot)]] <- renderText({

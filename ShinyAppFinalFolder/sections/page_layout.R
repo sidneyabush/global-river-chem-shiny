@@ -368,12 +368,12 @@ overview_ui <- navbarPage(
       bslib::navset_card_tab(
         bslib::nav_panel("Distributions",
           tags$h3("Explore Distributions of Solutes and Catchment Characteristics"),
-          htmltools::p("Choose up to three variables to compare their distributions across matching sites."),
+          htmltools::p("Choose up to four variables to compare their distributions across matching sites."),
           analysis_layout(
             analysis_controls(
               selectizeInput("driver_solute_dropdown", "Variables",
                 choices = driver_choices(quant_drivers), selected = quant_drivers[1],
-                multiple = TRUE, options = list(maxItems = 3, closeAfterSelect = TRUE))
+                multiple = TRUE, options = list(maxItems = distribution_limit, closeAfterSelect = TRUE))
             ),
             uiOutput("exploration_histograms")
           )
