@@ -137,7 +137,6 @@ all_drivers_map <- all_drivers_table %>% select(-all_of(source_columns), -all_of
 # use the site reference country in the chemistry controls
 site_countries <- setNames(all_drivers_table$Country, all_drivers_table[["Stream Name"]])
 chemistry_countries <- sort(unique(as.character(site_countries[summaries$chemistry_sites])))
-paired_countries <- sort(unique(as.character(site_countries[summaries$paired_sites])))
 
 # load each full observation table only when a plot first needs it
 delayedAssign("master_chem", {
@@ -257,19 +256,6 @@ format_site_years <- function(years) {
   paste(vapply(runs, function(run) {
     paste(unique(range(run)), collapse = "–")
   }, character(1)), collapse = ", ")
-}
-
-site_year_details <- function(variables) {
-  variables <- intersect(unique(variables), names(spatial_years))
-  if (!length(variables)) return(NULL)
-  details <- all_drivers_table[c("Stream Name", "Observation Network")]
-  for (variable in variables) {
-    coverage <- spatial_years[[variable]]
-    heading <- paste0(variable, " · source ", coverage$period)
-    details[[heading]] <- vapply(coverage$years[details[["Stream Name"]]],
-      format_site_years, character(1))
-  }
-  details
 }
 
 # ---- make base map and add options for coloration ----

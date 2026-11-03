@@ -358,7 +358,7 @@ overview_ui <- navbarPage(
         uiOutput("exploration_filter_controls"),
         textOutput("exploration_site_count"),
         textOutput("exploration_map_note"),
-        selectInput("exploration_map_option", "Color sites by",
+        selectInput("exploration_map_option", "Color map and relationships by",
           choices = driver_choices(map_color_options), selected = "Country"),
         tags$div(class = "map-with-legend",
           leafletOutput("exploration_map", height = "420px"),
@@ -368,22 +368,19 @@ overview_ui <- navbarPage(
       bslib::navset_card_tab(
         bslib::nav_panel("Distributions",
           tags$h3("Explore Distributions of Solutes and Catchment Characteristics"),
-          htmltools::p("Choose a solute or catchment characteristic to see its distribution across sites."),
+          htmltools::p("Choose up to three variables to compare their distributions across matching sites."),
           analysis_layout(
             analysis_controls(
-              selectInput(inputId = "driver_solute_dropdown",
-                label = "Variable",
-                choices = driver_choices(quant_drivers), selected = quant_drivers[1])
+              selectizeInput("driver_solute_dropdown", "Variables",
+                choices = driver_choices(quant_drivers), selected = quant_drivers[1],
+                multiple = TRUE, options = list(maxItems = 3, closeAfterSelect = TRUE))
             ),
-            tagList(
-              plotOutput("driver_histogram"),
-              uiOutput("histogram_years_section")
-            )
+            uiOutput("exploration_histograms")
           )
         ),
         bslib::nav_panel("Relationships",
           tags$h3("Explore Relationships between Solutes and Catchment Characteristics"),
-          htmltools::p("Please select a solute or catchment characteristic from each of the dropdown lists below. All solute concentrations are in mg L⁻¹."),
+          htmltools::p("Choose variables for the two axes. Points use the map colors above. Gray points have no value for the color field."),
           analysis_layout(
             analysis_controls(
               selectInput(inputId = "x_axis_dropdown",
@@ -392,14 +389,11 @@ overview_ui <- navbarPage(
               selectInput(inputId = "y_axis_dropdown",
                 label = "Y-Axis Variable",
                 choices = driver_choices(quant_drivers), selected = "DSi"),
-              selectInput(inputId = "color_dropdown",
-                label = "Color Variable",
-                choices = driver_choices(color_drivers), selected = "Dominant Land Cover"),
               actionButton("LR_button", "Show or hide regression")
             ),
             tagList(
-              plotOutput("driver_solute_plot"),
-              uiOutput("relationship_years_section")
+              textOutput("relationship_site_count"),
+              plotOutput("driver_solute_plot")
             )
           )
       )
@@ -410,52 +404,48 @@ overview_ui <- navbarPage(
   # ---- site comparison panel ----
   tabPanel("Site Comparison",
     tags$div(class = "workspace-stack",
-      tags$p("Site choices and plots use the filters set in Data Exploration."),
+      bslib::card(fill = FALSE,
+        bslib::card_header("Choose sites to compare"),
+        tags$div(class = "map-with-controls",
+          tags$aside(`aria-label` = "Site comparison filters",
+            selectInput("comparison_country", "Country:",
+              choices = c("All countries" = "", sort(unique(as.character(exploration$Country))))),
+            selectInput("comparison_network", "Observation network:",
+              choices = c("All networks" = "", sort(unique(as.character(exploration[["Observation Network"]]))))),
+            selectizeInput("comparison_filters", "Choose up to three numeric filters:",
+              choices = exploration_filter_choices, multiple = TRUE,
+              options = list(maxItems = 3, closeAfterSelect = TRUE)),
+            uiOutput("comparison_filter_controls"),
+            actionButton("clear_comparison_sites", "Clear selected sites")
+          ),
+          tags$div(
+            tags$p("Click up to three markers to compare sites. Click a selected marker again to remove it. Changing filters removes selected sites that no longer match."),
+            textOutput("comparison_map_count"),
+            uiOutput("comparison_selection"),
+            leafletOutput("comparison_map", height = "420px")
+          )
+        )
+      ),
       bslib::navset_card_tab(
         bslib::nav_panel("Solute Distributions",
           tags$h3("Compare Solute Distributions Across Sites"),
-          htmltools::p("Using the buttons below, select a solute to compare boxplot distributions of one solute across sites. Select sites using the Country
-                              and Site drop down menus. We suggest displaying no more than 10 sites at a time."),
           analysis_layout(
             analysis_controls(
-              radioButtons(inputId = "button_solute3",
-                label = "Solute",
-                choices = solute_choices, selected = "Ca"),
-              selectInput(inputId = "dropdown_country3",
-                label = "Country",
-                choices = chemistry_countries, selected = "United States",
-                multiple = TRUE),
-              selectInput(inputId = "dropdown_site3",
-                label = "Site",
-                choices = NULL,
-                multiple = TRUE)
+              radioButtons("button_solute3", "Solute", choices = solute_choices, selected = "Ca")
             ),
-            tagList(
-              plotOutput("solute_boxplot")
-            )
+            tagList(textOutput("comparison_boxplot_note"), plotOutput("solute_boxplot"))
           )
         ),
         bslib::nav_panel("Time Series",
           tags$h3("Compare Solute Time Series Across Sites"),
-          htmltools::p("Using the buttons below, select a solute to compare time series of one solute across sites. Select sites using the Country
-                              and Site drop down menus. Switch between individual observations and monthly distributions. We suggest displaying no more than 3 sites at a time."),
           analysis_layout(
             analysis_controls(
-              radioButtons(inputId = "button_solute2",
-                label = "Solute",
-                choices = solute_choices, selected = "Ca"),
-              selectInput(inputId = "dropdown_country2",
-                label = "Country",
-                choices = chemistry_countries, selected = "United States",
-                multiple = TRUE),
-              selectInput(inputId = "dropdown_site2",
-                label = "Site",
-                choices = NULL,
-                multiple = TRUE),
+              radioButtons("button_solute2", "Solute", choices = solute_choices, selected = "Ca"),
               actionButton("seasonal_button2", "Switch time-series view")
             ),
             tagList(
-              sliderInput("xslider2", label = "Select Date Range of Interest",
+              textOutput("comparison_timeseries_note"),
+              sliderInput("xslider2", label = "Date range",
                 min = chemistry_dates[1], max = chemistry_dates[2], value = chemistry_dates),
               plotOutput("timeseries_out2")
             )
@@ -463,28 +453,14 @@ overview_ui <- navbarPage(
         ),
         bslib::nav_panel("Concentration–Discharge",
           tags$h3("Explore Concentration-Discharge Relationships Across Sites"),
-          htmltools::p("Using the buttons below, select a solute to compare concentration-discharge (C-Q) relationships of one solute across sites.
-                              Select sites using the Country and Site drop down menus. The equation and R2 in the upper left of the plot
-                              provide slope and fit information for each C-Q relationship. We suggest displaying no more than 3 sites at a time."),
           analysis_layout(
             analysis_controls(
-              radioButtons(inputId = "button_solute4",
-                label = "Solute",
-                choices = solute_choices[solute_choices %in% summaries$paired_solutes], selected = "Ca"),
-              selectInput(inputId = "dropdown_country4",
-                label = "Country",
-                choices = paired_countries, selected = "United States",
-                multiple = TRUE),
-              selectInput(inputId = "dropdown_site4",
-                label = "Site",
-                choices = NULL,
-                multiple = TRUE)
-            ), # close sidebar panel
-            tagList(
-              plotOutput("cq_plot")
-            )
+              radioButtons("button_solute4", "Solute",
+                choices = solute_choices[solute_choices %in% summaries$paired_solutes], selected = "Ca")
+            ),
+            tagList(textOutput("comparison_cq_note"), plotOutput("cq_plot"))
           )
-      )
+        )
       )
     )
   ),
