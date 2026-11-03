@@ -2,7 +2,7 @@
 
 # reuse the small summaries if they match the two observation files
 observation_files <- data_files[c("Master_Chem_20261029.rds", "CQ_20261029.rds")]
-summaries <- if (file.exists("App_Chemistry_Summaries.rds")) readRDS("App_Chemistry_Summaries.rds")
+summaries <- if (file.exists(summary_file)) readRDS(summary_file)
 if (!identical(summaries$file_hashes, unname(tools::md5sum(observation_files)))) {
   summaries <- chemistry_summaries(observation_files)
 }
