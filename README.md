@@ -2,57 +2,15 @@
 
 [Open the live app](https://sidneyabush.shinyapps.io/global-river-chem-shiny/)
 
-Explore river chemistry, watershed characteristics, and concentration–discharge relationships.
-
 ## Run locally
 
-
 - Install [R 4.4 or newer](https://cran.r-project.org/) and [RStudio Desktop](https://posit.co/download/rstudio-desktop/).
-- [Download the project ZIP](https://github.com/sidneyabush/global-river-chem-shiny/archive/refs/heads/main.zip) and unzip it. Inside `ShinyAppFinalFolder`, open `global-river-chem-shiny.Rproj` in RStudio.
-- Set the data folder as described below. Open `app.R` and click **Run App**. If RStudio needs Shiny before it can show the button, run `source("install_packages.R")` in the R console first.
-- Stay online for the first launch so R can install missing packages. The interactive basemap also uses an internet connection.
-
-First-time package installation passed on macOS with R 4.5 using an empty package library. The clean setup also rendered both CAMREX greenup cycles with their dates, coverage percentages, and flags.
-
-From the repository root, you can also run `shiny::runApp("ShinyAppFinalFolder")` once Shiny is installed.
-
-## App data
-
-Get the three required RDS files and the optional startup summary from Box under `SiSyn/spatial-data-extractions/spatial-data/shiny-app-inputs/`. In RStudio, run the line below with the path to your local Box folder, then start the app.
+- [Download and unzip the project](https://github.com/sidneyabush/global-river-chem-shiny/archive/refs/heads/main.zip). Open `ShinyAppFinalFolder/global-river-chem-shiny.Rproj` in RStudio.
+- Download the app inputs from `SiSyn/spatial-data-extractions/spatial-data/shiny-app-inputs/` in Box. Keep `Master_Chem_20261029.rds`, `CQ_20261029.rds`, and `Spatial_20261102.rds` together in one local folder. Include `App_Chemistry_Summaries.rds` if available for faster startup.
+- In the RStudio console, run the line below with the path to the folder containing the downloaded files.
 
 ```r
-Sys.setenv(SHINY_DATA_DIR = "/path/to/Box/spatial-data/shiny-app-inputs")
+Sys.setenv(SHINY_DATA_DIR = "/path/to/shiny-app-inputs")
 ```
 
-| File | What it contains |
-| --- | --- |
-| `Master_Chem_20261029.rds` | Stream chemistry observations |
-| `CQ_20261029.rds` | Paired chemistry and discharge observations |
-| `Spatial_20261102.rds` | App-ready watershed summaries and both CAMREX greenup cycles, including dates, coverage percentages, and flags |
-
-### Startup summary
-
-`App_Chemistry_Summaries.rds` contains solute availability by year, solute coverage and averages by site, and counts of paired chemistry and discharge observations. The app uses these summaries to open faster and populate the Site Directory while loading the full observation tables only when a plot needs them.
-
-Keep the summary file with the other inputs in Box. If it is missing or the observation files have changed, the app calculates the summaries at startup. Running `prepare_chemistry.R` also rebuilds the summary file when preparing a new release.
-
-### Refresh the spatial data
-
-Ask the project maintainer for the latest verified Updated release. The current source file is `deliverables/updated-annual-camrex-npp.rds` in the maintainer’s `data-workflow_spatial` workspace. For setup, the maintainer can share the app-ready `Spatial_20261102.rds` directly. The full release RDS is used to rebuild that app-ready file.
-
-To rebuild it yourself, get `updated-annual-camrex-npp.rds` from the maintainer and save it in Box. Open Terminal in `ShinyAppFinalFolder` and run
-
-```bash
-Rscript prepare_spatial.R /path/to/Box/spatial-data/updated-annual-camrex-npp.rds
-```
-
-The command writes `Spatial_20261102.rds` beside `app.R`. Move the newly generated file to the Box input folder so the app loads the refresh. Restart the app and open **CAMREX Greenup** to see both cycles.
-
-## Edit the app
-
-- `app.R` starts the app. `install_packages.R` lists the packages it needs.
-- `sections/data_and_settings.R` prepares the data and defines shared labels and styles.
-- `sections/page_layout.R` defines the tabs, menus, and plot locations.
-- `sections/interactive_outputs.R` connects the filters and menus to the maps, tables, and plots.
-
-After editing, save the file, click **Stop**, and click **Run App** again. Use `app.R` for this version. The [2024 workshop archive](workshop-2024-archive/) holds the older app scripts, data, and setup files for reference.
+- Open `app.R` and click **Run App**. If the button is missing, run `source("install_packages.R")` in the RStudio console first. Stay online for package installation and the map.
