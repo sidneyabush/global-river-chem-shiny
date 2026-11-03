@@ -273,9 +273,14 @@ site_year_details <- function(variables) {
 }
 
 # ---- make base map and add options for coloration ----
-# allow a close fit to the sites at different map widths
+# keep land outlines below the online tiles so a tile outage leaves a usable map
+land_outlines <- maps::map("world", fill = TRUE, plot = FALSE)
 site_map <- leaflet(all_drivers_map,
   options = leafletOptions(minZoom = 1, zoomSnap = 0, scrollWheelZoom = "center", maxBoundsViscosity = 1)) %>%
+  addMapPane("land-background", zIndex = 190) %>%
+  addPolygons(data = land_outlines, color = "#9aabad", weight = 1,
+    fillColor = "#e5ebe5", fillOpacity = 1,
+    options = pathOptions(pane = "land-background", interactive = FALSE)) %>%
   addProviderTiles(providers$Esri.WorldTopoMap) %>%
   setMaxBounds(lng1 = -540, lat1 = -85.051129, lng2 = 540, lat2 = 85.051129)
 
