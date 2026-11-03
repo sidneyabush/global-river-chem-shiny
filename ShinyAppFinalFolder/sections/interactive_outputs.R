@@ -1,22 +1,6 @@
 # ---- server ----
 # update maps, tables, and plots when users change selections
 overview_server <- function(input, output, session) {
-  # show the two dates and their own coverage for the selected watershed and year
-  output$camrex_greenup_cycles <- renderTable({
-    site <- req(input$camrex_greenup_site)
-    year <- req(input$camrex_greenup_year)
-    row <- camrex_greenup[camrex_greenup$Stream_Name == site, ]
-    prefix <- paste0("greenup_cycle", 0:1, "_", year)
-    flag <- unlist(row[paste0(prefix, "_coverage_flag")], use.names = FALSE)
-    data.frame(
-      Cycle = 1:2,
-      Date = unlist(row[paste0(prefix, "MMDD")], use.names = FALSE),
-      `Coverage (%)` = unlist(row[paste0(prefix, "_coverage_pct")], use.names = FALSE),
-      Flag = gsub("_", " ", flag, fixed = TRUE),
-      check.names = FALSE
-    )
-  }, digits = 2, na = "")
-
   # ---- data availability panel server ----
 
   # plot of number of sites with data for each solute over time

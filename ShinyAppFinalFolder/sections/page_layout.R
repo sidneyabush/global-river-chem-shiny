@@ -347,16 +347,6 @@ overview_ui <- navbarPage(
     )
   ),
 
-  tabPanel("CAMREX Greenup",
-    bslib::card(fill = FALSE,
-      bslib::card_header("MODIS greenup in the Updated dataset"),
-      selectInput("camrex_greenup_site", "Watershed", choices = camrex_sites),
-      selectInput("camrex_greenup_year", "Year", choices = 2001:2024, selected = 2002),
-      tags$p("Coverage is the share of the watershed with a best- or good-quality date. Coverage below 50% is flagged as low."),
-      tableOutput("camrex_greenup_cycles")
-    )
-  ),
-
   # ---- data exploration ----
   tabPanel("Data Exploration",
     tags$div(class = "workspace-stack",

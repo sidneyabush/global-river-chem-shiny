@@ -103,13 +103,8 @@ product_urls <- c(
   "GlobPermafrost PERPROB (Obu et al., 2018)" = "https://doi.org/10.1594/PANGAEA.888600"
 )
 
-# read the bundled watershed summaries and annual greenup records
+# read the watershed summaries
 all_drivers_table <- readRDS(data_files[["Spatial_20261102.rds"]])
-camrex_greenup <- attr(all_drivers_table, "camrex_greenup")
-if (is.null(camrex_greenup)) {
-  stop("Replace Spatial_20261102.rds with the copy bundled with this app.", call. = FALSE)
-}
-camrex_sites <- sort(camrex_greenup$Stream_Name)
 names(all_drivers_table) <- sub("^rock: ", "Rock: ", names(all_drivers_table))
 # show the combined rock classes used in the grl paper
 all_drivers_table[["Dominant Lithology"]] <- all_drivers_table[["GRL Lithology Group"]]
