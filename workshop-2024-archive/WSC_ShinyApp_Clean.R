@@ -1,29 +1,17 @@
 # install packages
-# setwd("/Users/keirajohnson/Desktop/ShinyAppExternalDeployment")
-#
-# renv::init()
-#
-# renv::restore()
-
-require(shiny)
-require(htmltools)
-require(dplyr)
-require(leaflet)
-require(maps)
-require(rcartocolor)
-require(DT)
-require(ggpubr)
-require(shinythemes)
-require(plotly)
-require(ggpmisc)
-require(fst)
-require(lubridate)
-require(ggplot2)
+librarian::shelf(shiny, htmltools, tidyverse, leaflet, maps, rcartocolor,
+  DT, ggpubr, DT, shinythemes, plotly, ggpmisc)
 
 # ---- read in data for tables, plotting, mapping#### ----
 
 # load in cleaned data files
+# this one is called "master_chem"
+# load("Master_Chem_ShinyAppCleaned.RData")
+
 master_chem <- read.fst("Master_Chem_ShinyAppCleanedFST.fst")
+
+# this one is called "master_q"
+# load("Master_Q_ShinyAppCleaned.RData")
 
 master_q <- read.fst("Master_Q_ShinyAppCleanedFST.fst")
 
@@ -36,14 +24,6 @@ load("SoluteDrivers_ShinyAppCleaned.RDS")
 # this one is called "solute_drivers_all"
 load("SoluteDriversAll_ShinyAppCleaned.RDS")
 
-# for data exploration panel
-quant_drivers <- c("Log(Drainage Area (km2))", "Evapotranspiration (kg/m2)", "Green Up Day (day of year)",
-  "Maximum Daylength (hours)", "Maximum Snow Covered Area (proportion)", "Log(Median Discharge (m3/s))",
-  "Median Elevation (m)", "NPP (kgC/m2)", "Precipitation (mm/year)", "Temperature (deg C)",
-  "Ca", "DSi", "K", "Mg", "N", "Na", "P")
-
-color_drivers <- c("Observation Network", "Climate Zone", "Dominant Lithology", "Dominant Land Cover")
-
 # create summary file for solute record plot
 master_chem_summary <- master_chem %>%
   dplyr::group_by(year, variable) %>%
@@ -53,11 +33,12 @@ master_chem_summary$variable <- factor(master_chem_summary$variable, levels = c(
 
 
 # read in source data for table of driver information and rename columns
-data_source_table <- read.csv("ShinyAppDataSourceTable.csv")
+data_source_table <- read.csv("/Users/keirajohnson/Box Sync/Hydrology_Lab/Projects/WSC_ShinyApp/ShinyAppDataSourceTable.csv")
 colnames(data_source_table) <- c("Variable", "Source", "Units", "Spatial Scale", "Temporal Scale", "Temporal Coverage", "Dataset Link")
 
 # read in source data for table and map of site characteristic information
-all_drivers_table <- read.csv("MapDriversTable2.csv", na.strings = c("", "NA"))
+all_drivers_table <- read.csv("/Users/keirajohnson/Box Sync/Hydrology_Lab/Projects/WSC_ShinyApp/MapDriversTable2.csv",
+  na.strings = c("", "NA"))
 
 # rename columns
 colnames(all_drivers_table) <- c("Stream Name", "Observation Network", "Latitude", "Longitude", "Climate Zone",
@@ -73,30 +54,21 @@ all_drivers_table$`Climate Zone` <- as.factor(all_drivers_table$`Climate Zone`)
 all_drivers_table$`Dominant Lithology` <- as.factor(all_drivers_table$`Dominant Lithology`)
 all_drivers_table$`Dominant Land Cover` <- as.factor(all_drivers_table$`Dominant Land Cover`)
 
-all_drivers_map <- all_drivers_table
-
-all_drivers_map$`Drainage Area (km2)` <- log(all_drivers_map$`Drainage Area (km2)`)
-all_drivers_map$`Median Discharge (cms)` <- log(all_drivers_map$`Median Discharge (cms)`)
-
-colnames(all_drivers_map)[c(9, 10)] <- c("Log(Drainage Area (km2))", "Log(Median Discharge (cms))")
-
-all_drivers_map$`Log(Median Discharge (cms))` <- ifelse(all_drivers_map$`Log(Median Discharge (cms))` == "-Inf", NA, all_drivers_map$`Log(Median Discharge (cms))`)
-
 # read in data for table of information about each observation network
-ON_table <- read.csv("ObservationNetworkTable.csv")
+ON_table <- read.csv("/Users/keirajohnson/Box Sync/Hydrology_Lab/Projects/WSC_ShinyApp/ObservationNetworkTable.csv")
 
 # read in data for solute record length table
-# solute_record_length<-read.csv("/Users/keirajohnson/Desktop/ShinyAppFinalFolder/shinyapp_chemQ_overview.csv")
+solute_record_length <- read.csv("/Users/keirajohnson/Box Sync/Hydrology_Lab/Projects/WSC_ShinyApp/shinyapp_chemQ_overview.csv")
 
 # ---- make base map and add options for coloration #### ----
 world_countries <- map_data("world")
 
-site_map <- leaflet(all_drivers_map) %>% addTiles() %>%
+site_map <- leaflet(all_drivers_table) %>% addTiles() %>%
   addCircleMarkers(lat = ~Latitude, lng = ~Longitude, color = "darkgrey",
     popup = ~ paste(`Stream Name`, `Observation Network`, sep = "<br>"), weight = 1, fillOpacity = 0.7)
 
 map_color_options <- c("Observation Network", "Climate Zone", "Dominant Lithology", "Dominant Land Cover",
-  "Mean Elevation", "Log(Drainage Area (km2))", "Log(Median Discharge (cms))",
+  "Mean Elevation", "Drainage Area (km2)", "Median Discharge (cms)",
   "Maximum Proportion Snow Covered Area (proportion)", "Precipitation (mm/year)",
   "Evapotranspiration (kg/m2)", "Mean Annual Temperature (deg C)", "NPP (kgC/m2)",
   "Green Up Day (day of year)", "Maximum Daylength (hours)")
@@ -128,7 +100,7 @@ overview_ui <- navbarPage(
         # in the second column add some text
         column(width = 4, align = "center",
 
-          tags$img(src = "title_picture.jpeg", width = "100%")
+          tags$img(src = "title_picture.jpg", width = "100%")
         ),
         column(width = 8,
 
@@ -137,7 +109,7 @@ overview_ui <- navbarPage(
           htmltools::p("Big data integration offers the potential to advance water science by promoting a more comprehensive understanding of watershed function.
                            During this workshop, we will explore an extensive dataset including field observations and modeled results of multiple stream chemical
                            and hydrometric parameters spanning over 200 rivers. This dataset also includes associated spatial data describing climate, land cover, lithology,
-                           and topography. We will explore questions and hypotheses about stream biogeochemical function using data visualization
+                           and topography associated with each watershed. We will explore questions and hypotheses about stream biogeochemical function using data visualization
                            tools to evaluate relationships between catchment characteristics and watershed processes."),
 
           htmltools::h2("About This Project"),
@@ -157,26 +129,28 @@ overview_ui <- navbarPage(
     fluidPage(
       htmltools::h2("About The Dataset"),
 
-      htmltools::p("The dataset in this workshop includes stream chemistry, discharge, climate, land use, lithology, and topography data
+      fluidRow(
+        htmltools::p("The dataset included in this workshop includes stream chemistry, discharge, climate, land use, lithology, and topography data
                             from over 200 across the globe. Stream discharge and chemistry data was contributed from public and private monitoring networks, research groups,
                             and govenmental agencies. Climate, productivity, land use, lithology, and topography associated with each watershed was derived from globally available modeled
                             and remotely sensed data products."),
 
-      htmltools::h2("Discharge and Solute Availability"),
+        htmltools::h2("Discharge and Solute Availability"),
 
-      htmltools::p("This dataset includes daily stream discharge and discrete stream chemistry. Solutes include inorganic nitrogren (NO3/NOx),
-                            inorganic phosphorus (PO4/SRP), silicon (Si), calcium (Ca), magnesium (Mg), sodium (Na), and potassium (K)."),
+        htmltools::p("This dataset includes daily stream discharge and discrete stream chemistry. Solutes include nitrogren (NO3/NOx),
+                            phosphorus (PO4/SRP), silicon (Si), calcium (Ca), magnesium (Mg), sodium (Na), and potassium (K)."),
 
-      plotOutput("plot1"),
+        plotOutput("plot1"),
 
-      htmltools::h2("About the Spatial Data Products"),
+        htmltools::h2("About the Spatial Data Products"),
 
-      htmltools::p("We acquired watershed characteristic (e.g., climate, land use) data from globally available spatial datasets listed below.
+        htmltools::p("We acquired watershed characteristic (e.g., climate, land use) data from globally available spatial datasets listed below.
                             Only globally available data layers were used in order to have consistent data sources across the extent of our dataset.
                             Watershed boundaries were used to extract spatial data from gridded data sources."),
 
-      # see table1 output in server below
-      dataTableOutput("table1")
+        # see table1 output in server below
+        dataTableOutput("table1")
+      ) # close fluid row
     ) # close fluid page
   ), # close tab panel
 
@@ -198,16 +172,12 @@ overview_ui <- navbarPage(
                          Observation Network or catchment characteristic. Click on an individual point to see associated the name and Observation Network. For more information
                          on each Observation Network, please visit the associated webpage linked in the table to the left."),
 
-        column(width = 8, offset = 8,
-          # add option to color points by different things
-          varSelectInput(
-            inputId = "map_option",
-            label = "Color Sites By:",
-            data = all_drivers_map %>% select(all_of(map_color_options))
-          )
+        # add option to color points by different things
+        varSelectInput(
+          inputId = "map_option",
+          label = "Color Sites By:",
+          data = all_drivers_table %>% select(map_color_options)
         ),
-
-
 
         # see mymap output in server below
         leafletOutput("mymap"),
@@ -223,10 +193,7 @@ overview_ui <- navbarPage(
       ), # close main panel
     ) # close fluid page
   ), # close tab panel
-
-  # ---- data exploration#### ----
   tabPanel("Data Exploration",
-
     fluidPage(
       # first set of plots to look at solute time series
       titlePanel("Explore Distributions of Solutes and Catchment Characteristics"),
@@ -239,7 +206,7 @@ overview_ui <- navbarPage(
           # this lists all site characteristic options from solute drivers dataframe
           selectInput(inputId = "driver_solute_dropdown",
             label = "Variable",
-            choices = quant_drivers)
+            choices = c(unique(solute_drivers$Driver)))
         ),
         # plot histogram of average site characteristics
         mainPanel(
@@ -257,15 +224,15 @@ overview_ui <- navbarPage(
           # this lists all observation networks in the master chemistry data
           selectInput(inputId = "x_axis_dropdown",
             label = "X-Axis Variable",
-            choices = quant_drivers),
+            choices = c(unique(solute_drivers_all$Driver))),
 
           selectInput(inputId = "y_axis_dropdown",
             label = "Y-Axis Variable",
-            choices = quant_drivers),
+            choices = c(unique(solute_drivers_all$Driver2))),
 
           selectInput(inputId = "color_dropdown",
             label = "Color Variable",
-            choices = color_drivers),
+            choices = c(unique(solute_drivers_all$Driver3))),
 
           actionButton("LR_button", "Add linear regression")
         ),
@@ -544,7 +511,7 @@ overview_server <- function(input, output, session) {
 
   map_color <- reactive({
 
-    all_drivers_map %>%
+    all_drivers_table %>%
       select(input$map_option) %>%
       unlist()
 
@@ -562,7 +529,7 @@ overview_server <- function(input, output, session) {
     } else if (input$map_option == "Dominant Land Cover") {
       colorFactor(c25, domain = map_color())
     } else {
-      colorNumeric("PuOr", domain = map_color())
+      colorNumeric("RdYlGn", domain = map_color())
     }
 
   })
@@ -570,7 +537,7 @@ overview_server <- function(input, output, session) {
   # color map by variable using palette defined above
   observe({
 
-    leafletProxy("mymap", data = all_drivers_map) %>%
+    leafletProxy("mymap", data = all_drivers_table) %>%
       clearMarkers() %>%
       clearControls() %>%
       addCircleMarkers(lat = ~Latitude, lng = ~Longitude,
@@ -623,15 +590,11 @@ overview_server <- function(input, output, session) {
 
   driver_solute_plot_noLR <- reactive(ggplot(solute_drivers_v2(), aes(Mean_Value, Mean_Value2, col = Mean_Value3)) + geom_point() +
     labs(x = input$x_axis_dropdown, y = input$y_axis_dropdown, col = input$color_dropdown) +
-    theme_bw() + theme(text = element_text(size = 20)) + scale_color_manual(values = c25))
-
-
+    theme_bw() + theme(text = element_text(size = 20)))
 
   driver_solute_plot_LR <- reactive(ggplot(solute_drivers_v2(), aes(Mean_Value, Mean_Value2, col = Mean_Value3)) + geom_point() +
     labs(x = input$x_axis_dropdown, y = input$y_axis_dropdown, col = input$color_dropdown) + theme_bw() + theme(text = element_text(size = 20)) +
-    geom_smooth(method = "lm", se = F, col = "firebrick4") +
-    stat_poly_eq(use_label(c("eq", "R2")), size = 7, col = "firebrick4") +
-    scale_color_manual(values = c25))
+    geom_smooth(method = "lm", se = F, col = "firebrick4"))
 
   observeEvent(input$LR_button, {
     whichplot3(!whichplot3())
@@ -950,7 +913,7 @@ overview_server <- function(input, output, session) {
     tagList(url4)
   })
 
-  url5 <- a("Shiny App GitHub Page", href = "https://github.com/sidneyabush/WSC_shiny_app.git")
+  url5 <- a("Shiny App GitHub Page", href = "https://github.com/sidneyabush/global-river-chem-shiny.git")
   output$github_page <- renderUI({
     tagList(url5)
   })

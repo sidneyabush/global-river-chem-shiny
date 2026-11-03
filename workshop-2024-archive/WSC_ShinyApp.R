@@ -714,7 +714,7 @@ overview_server <- function(input, output, session) {
     tagList(url4)
   })
 
-  url5 <- a("Shiny App GitHub Page", href = "https://github.com/sidneyabush/WSC_shiny_app.git")
+  url5 <- a("Shiny App GitHub Page", href = "https://github.com/sidneyabush/global-river-chem-shiny.git")
   output$github_page <- renderUI({
     tagList(url5)
   })

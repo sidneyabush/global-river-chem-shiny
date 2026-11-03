@@ -42,4 +42,4 @@ The command writes `Spatial_20261102.rds` beside `app.R`. If there is an older c
 - `sections/page_layout.R` defines the tabs, menus, and plot locations.
 - `sections/interactive_outputs.R` connects the filters and menus to the maps, tables, and plots.
 
-After editing, save the file, click **Stop**, and click **Run App** again. Use `app.R` for this version. The older Shiny scripts are retained for reference.
+After editing, save the file, click **Stop**, and click **Run App** again. Use `app.R` for this version. The [2024 workshop archive](workshop-2024-archive/) holds the older app scripts, data, and setup files for reference.
