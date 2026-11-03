@@ -6,6 +6,8 @@ Explore river chemistry, watershed characteristics, and concentration–discharg
 
 ## Run locally
 
+The ZIP includes the app, all three data files, and the startup summary. You can run it directly from the unzipped folder.
+
 - Install [R 4.4 or newer](https://cran.r-project.org/) and [RStudio Desktop](https://posit.co/download/rstudio-desktop/).
 - [Download the project ZIP](https://github.com/sidneyabush/global-river-chem-shiny/archive/refs/heads/main.zip) and unzip it. Inside `ShinyAppFinalFolder`, open `global-river-chem-shiny.Rproj` in RStudio.
 - Open `app.R` and click **Run App**. If RStudio needs Shiny before it can show the button, run `source("install_packages.R")` in the R console first.
@@ -17,13 +19,19 @@ From the repository root, you can also run `shiny::runApp("ShinyAppFinalFolder")
 
 ## App data
 
-Use the three prepared RDS files below. In a current copy of the project, they sit beside `app.R`. If you receive the files separately, put them in `ShinyAppFinalFolder/data/` and keep the filenames unchanged. The app checks that folder first.
+The ZIP includes the three required data files below beside `app.R`. If you receive replacement data files separately, put them in `ShinyAppFinalFolder/data/` and keep the filenames unchanged. The app checks that folder first.
 
 | File | What it contains |
 | --- | --- |
 | [`Master_Chem_20261029.rds`](ShinyAppFinalFolder/Master_Chem_20261029.rds) | Stream chemistry observations |
 | [`CQ_20261029.rds`](ShinyAppFinalFolder/CQ_20261029.rds) | Paired chemistry and discharge observations |
 | [`Spatial_20261102.rds`](ShinyAppFinalFolder/Spatial_20261102.rds) | App-ready watershed summaries and both CAMREX greenup cycles, including dates, coverage percentages, and flags |
+
+### Startup summary
+
+[`App_Chemistry_Summaries.rds`](ShinyAppFinalFolder/App_Chemistry_Summaries.rds) contains solute availability by year, solute coverage and averages by site, and counts of paired chemistry and discharge observations. The app uses these summaries to open faster and populate the Site Directory while loading the full observation tables only when a plot needs them.
+
+Leave the summary file beside `app.R`. If it is missing or the observation files have changed, the app calculates the summaries at startup. Running `prepare_chemistry.R` also rebuilds the summary file when preparing a new release.
 
 ### Refresh the spatial data
 
