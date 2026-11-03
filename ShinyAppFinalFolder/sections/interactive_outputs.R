@@ -49,7 +49,6 @@ overview_server <- function(input, output, session) {
     if (is.null(width)) width <- 480
     max(300, width)
   }, height = 420)
-  outputOptions(output, "plot1", suspendWhenHidden = FALSE)
 
   # drivers table information
   output$table1 <- DT::renderDT({
@@ -98,7 +97,6 @@ overview_server <- function(input, output, session) {
       options = list(searching = FALSE, paging = FALSE, info = FALSE, scrollX = TRUE,
         order = list(), createdRow = highlight))
   }, server = FALSE)
-  outputOptions(output, "table1", suspendWhenHidden = FALSE)
 
   # ---- site location panel server ----
 
@@ -146,7 +144,6 @@ overview_server <- function(input, output, session) {
       if (length(links)) HTML(paste(links, collapse = "<br>")) else tags$p("No source links listed")
     )
   })
-  outputOptions(output, "site_network_summary", suspendWhenHidden = FALSE)
 
   map_color <- reactive({
 
@@ -300,51 +297,10 @@ overview_server <- function(input, output, session) {
       ", data = list(legend = as.character(map_legend(variable, selected, gradient, palette))))
   })
 
-  # drivers table information
+  # filter the prepared rows without rebuilding the expandable cells
   output$table2 <- DT::renderDT({
-    directory <- directory_sites()
-
-    # place the labeled sources next to the site name
-    links <- lapply(source_columns, function(column) {
-      vapply(directory[[column]], function(value) {
-        source_entry(value, source_labels[[column]])
-      }, character(1))
-    })
-    sites <- directory[c("Observation Network", "Country", "Stream Name")]
-    sites[["Solute Coverage"]] <- vapply(sites[["Stream Name"]], function(site) {
-      coverage <- site_chemistry[[site]]
-      if (!length(coverage$variable)) return("No chemistry records")
-      as.character(tags$details(
-        tags$summary(paste(length(coverage$variable), "of", length(solute_choices), "solutes")),
-        tags$table(class = "solute-coverage-detail small mt-2",
-          tags$thead(tags$tr(lapply(c("Solute", "First year", "Last year", "Observations"),
-            function(label) tags$th(scope = "col", label)))),
-          tags$tbody(lapply(seq_along(coverage$variable), function(row) {
-            tags$tr(tags$td(solute_notation(coverage$variable[row])),
-              tags$td(coverage$first_year[row]), tags$td(coverage$last_year[row]),
-              tags$td(format(coverage$observations[row], big.mark = ",")))
-          }))
-        )
-      ))
-    }, character(1))
-    pairs <- as.integer(paired_counts[match(sites[["Stream Name"]], names(paired_counts))])
-    pairs[is.na(pairs)] <- 0L
-    sites[["Has Discharge"]] <- directory[["Has Discharge"]]
-    sites[["Flagged for WRTDS"]] <- directory[["WRTDS"]]
-    sites[["C–Q Pairs"]] <- pairs
-    sites[["Source Links"]] <- vapply(seq_len(nrow(sites)), function(index) {
-      entries <- vapply(links, function(column) column[index], character(1))
-      entries <- entries[nzchar(entries)]
-      if (!length(entries)) return("No source links listed")
-      as.character(tags$details(tags$summary("View sources"),
-        tags$div(class = "small mt-2", HTML(paste(entries, collapse = "<br>")))))
-    }, character(1))
-    sites[["Latitude (°)"]] <- directory$Latitude
-    sites[["Longitude (°)"]] <- directory$Longitude
-    # sort the expandable coverage cells by the underlying count
-    sites[["Solute Count"]] <- vapply(sites[["Stream Name"]], function(site) {
-      length(site_chemistry[[site]]$variable)
-    }, integer(1))
+    rows <- match(directory_sites()[["Stream Name"]], directory_rows[["Stream Name"]])
+    sites <- directory_rows[rows, , drop = FALSE]
     coverage_column <- match("Solute Coverage", names(sites)) - 1L
     count_column <- match("Solute Count", names(sites)) - 1L
     DT::datatable(sites, rownames = FALSE, escape = setdiff(names(sites), c("Solute Coverage", "Source Links")),
@@ -504,7 +460,7 @@ overview_server <- function(input, output, session) {
     labs(x = spatial_label(input$x_axis_dropdown), y = spatial_label(input$y_axis_dropdown),
       col = input$color_dropdown) + app_plot_theme() + app_category_scale() +
     geom_smooth(method = "lm", se = F, col = app_ink) +
-    stat_poly_eq(aes(label = after_stat(whole_fit_label(b_0, b_1, r.squared))),
+    ggpmisc::stat_poly_eq(aes(label = after_stat(whole_fit_label(b_0, b_1, r.squared))),
       output.type = "numeric", parse = FALSE, family = "Arial", size = 7, col = app_ink))
 
   observeEvent(input$LR_button, {
@@ -569,6 +525,7 @@ overview_server <- function(input, output, session) {
   # ---- comparative boxplot of one solute across many sites ----
   observe({
 
+    req(input$app_tab == "Site Comparison")
     sites_LTER3 <- master_chem %>%
       filter(Stream_Name %in% filtered_exploration()[["Stream Name"]], Country %in% input$dropdown_country3) %>%
       distinct(Stream_Name)
@@ -607,6 +564,7 @@ overview_server <- function(input, output, session) {
   # list matching sites in the selected countries
   observe({
 
+    req(input$app_tab == "Site Comparison")
     sites_LTER2 <- master_chem %>%
       filter(Stream_Name %in% filtered_exploration()[["Stream Name"]], Country %in% input$dropdown_country2) %>%
       distinct(Stream_Name)
@@ -645,7 +603,7 @@ overview_server <- function(input, output, session) {
 
   observe({
 
-    req(nrow(chem_actual2()) > 0)
+    req(input$app_tab == "Site Comparison", nrow(chem_actual2()) > 0)
     updateSliderInput(session, "xslider2", min = as.Date(min_date2()$min_overall),
       max = as.Date(max_date2()$max_overall), value = c(as.Date(min_date2()$min_overall),
         as.Date(max_date2()$max_overall)))
@@ -686,6 +644,7 @@ overview_server <- function(input, output, session) {
   # ---- cq plot ----
   observe({
 
+    req(input$app_tab == "Site Comparison")
     sites_LTER4 <- cq_all_nodups %>%
       filter(Stream_Name %in% filtered_exploration()[["Stream Name"]], Country %in% input$dropdown_country4, variable %in% input$button_solute4,
         Qcms > 0, value > 0) %>%
@@ -718,7 +677,7 @@ overview_server <- function(input, output, session) {
       labs(x = "Log[discharge (m³ s⁻¹)]", y = paste0("Log[concentration (", solute_units(input$button_solute4), ")]"), col = "Site") +
       scale_x_continuous(labels = whole_number) + scale_y_continuous(labels = whole_number) +
       geom_smooth(se = F, method = "lm") +
-      stat_poly_eq(aes(label = after_stat(whole_fit_label(b_0, b_1, r.squared))),
+      ggpmisc::stat_poly_eq(aes(label = after_stat(whole_fit_label(b_0, b_1, r.squared))),
       output.type = "numeric", parse = FALSE, family = "Arial", size = 7) +
       app_plot_theme() + app_category_scale()
 
@@ -729,7 +688,7 @@ overview_server <- function(input, output, session) {
   # list matching sites in the selected country
   observe({
 
-    req(input$dropdown_country)
+    req(input$app_tab == "Site Specific Time Series", input$dropdown_country)
     sites_LTER <- master_chem %>%
       filter(Country == input$dropdown_country,
         Stream_Name %in% filtered_exploration()[["Stream Name"]]) %>%
@@ -769,7 +728,7 @@ overview_server <- function(input, output, session) {
 
   observe({
 
-    req(nrow(chem_actual()) > 0)
+    req(input$app_tab == "Site Specific Time Series", nrow(chem_actual()) > 0)
     updateSliderInput(session, "xslider", min = as.Date(min_date()$min),
       max = as.Date(max_date()$max), value = c(as.Date(min_date()$min), as.Date(max_date()$max)))
 

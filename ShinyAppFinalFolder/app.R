@@ -17,12 +17,12 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(leaflet)
   library(ggplot2)
-  library(ggpmisc)
   library(lubridate)
 })
 
 # ---- app sections ----
 # load the shared settings before creating the pages and outputs
+source(file.path("sections", "chemistry_summaries.R"), local = TRUE)
 source(file.path("sections", "data_and_settings.R"), local = TRUE)
 source(file.path("sections", "page_layout.R"), local = TRUE)
 source(file.path("sections", "interactive_outputs.R"), local = TRUE)

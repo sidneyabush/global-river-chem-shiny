@@ -31,3 +31,10 @@ paired <- fread(inputs[2],
 paired <- prepare_solutes(paired[!is.na(Qcms)])
 saveRDS(as.data.frame(chemistry), "Master_Chem_20261029.rds")
 saveRDS(as.data.frame(paired), "CQ_20261029.rds")
+
+# refresh the small startup summaries whenever the observation files change
+rm(chemistry, paired)
+invisible(gc())
+source(file.path("sections", "chemistry_summaries.R"))
+files <- c("Master_Chem_20261029.rds", "CQ_20261029.rds")
+saveRDS(chemistry_summaries(setNames(files, files)), "App_Chemistry_Summaries.rds")

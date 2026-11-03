@@ -1,22 +1,16 @@
 # ---- read in data for tables, plotting, mapping ----
 
-# summarize observations without making filtered copies of the full table
-master_chem <- readRDS(data_files[["Master_Chem_20261029.rds"]])
-data.table::setDT(master_chem)
-data.table::set(master_chem, j = c("LTER", "units"), value = NULL)
-master_chem_summary <- master_chem[is.finite(value),
-  .(num_streams = data.table::uniqueN(Stream_Name), num_observations = .N),
-  by = .(year, variable)]
-site_chemistry <- master_chem[is.finite(value),
-  .(first_year = min(year), last_year = max(year), observations = .N),
-  by = .(Stream_Name, variable)]
-site_chemistry <- split(as.data.frame(site_chemistry), site_chemistry$Stream_Name)
-solute_means <- master_chem[, .(value = mean(value, na.rm = TRUE)),
-  by = .(Stream_Name, variable)]
-solute_means <- tidyr::pivot_wider(as.data.frame(solute_means),
-  names_from = variable, values_from = value)
-data.table::setDF(master_chem)
-data.table::setDF(master_chem_summary)
+# reuse the small summaries if they match the two observation files
+observation_files <- data_files[c("Master_Chem_20261029.rds", "CQ_20261029.rds")]
+summaries <- if (file.exists("App_Chemistry_Summaries.rds")) readRDS("App_Chemistry_Summaries.rds")
+if (!identical(summaries$file_hashes, unname(tools::md5sum(observation_files)))) {
+  summaries <- chemistry_summaries(observation_files)
+}
+master_chem_summary <- summaries$by_year
+site_chemistry <- summaries$by_site
+solute_means <- summaries$means
+paired_counts <- summaries$paired_counts
+chemistry_dates <- summaries$dates
 
 # put the solutes with the most observations at the top of the plot
 solute_observation_totals <- master_chem_summary %>%
@@ -147,14 +141,23 @@ all_drivers_map <- all_drivers_table %>% select(-all_of(source_columns), -all_of
 
 # use the site reference country in the chemistry controls
 site_countries <- setNames(all_drivers_table$Country, all_drivers_table[["Stream Name"]])
-master_chem$Country <- unname(site_countries[master_chem$Stream_Name])
-# load the paired records after the chemistry summaries are ready
-invisible(gc())
-cq_all_nodups <- readRDS(data_files[["CQ_20261029.rds"]])
-cq_all_nodups <- cq_all_nodups[c("Stream_Name", "variable", "value", "Qcms")]
-cq_all_nodups$Country <- unname(site_countries[cq_all_nodups$Stream_Name])
-chemistry_countries <- sort(unique(as.character(master_chem$Country)))
-paired_countries <- sort(unique(as.character(cq_all_nodups$Country)))
+chemistry_countries <- sort(unique(as.character(site_countries[summaries$chemistry_sites])))
+paired_countries <- sort(unique(as.character(site_countries[summaries$paired_sites])))
+
+# load each full observation table only when a plot first needs it
+delayedAssign("master_chem", {
+  rows <- readRDS(data_files[["Master_Chem_20261029.rds"]])
+  rows <- rows[c("Stream_Name", "variable", "value", "date", "min", "max")]
+  rows$Country <- unname(site_countries[rows$Stream_Name])
+  rows
+}, eval.env = environment(), assign.env = environment())
+
+delayedAssign("cq_all_nodups", {
+  rows <- readRDS(data_files[["CQ_20261029.rds"]])
+  rows <- rows[c("Stream_Name", "variable", "value", "Qcms")]
+  rows$Country <- unname(site_countries[rows$Stream_Name])
+  rows
+}, eval.env = environment(), assign.env = environment())
 
 # point yzeron users to the provider catalog if the station pages are unavailable
 yzeron <- all_drivers_table[["Observation Network"]] == "Yzeron"
@@ -224,11 +227,6 @@ driver_choices <- function(fields) {
   split(choices, factor(groups, levels = group_order), drop = TRUE)
 }
 
-# count usable chemistry and discharge pairs by site
-paired_counts <- table(cq_all_nodups$Stream_Name[which(
-  is.finite(cq_all_nodups$Qcms) & cq_all_nodups$Qcms > 0 &
-    is.finite(cq_all_nodups$value) & cq_all_nodups$value > 0)])
-
 # add site means to the map and exploration data
 exploration <- left_join(all_drivers_map, solute_means, by = c("Stream Name" = "Stream_Name"))
 map_color_options <- setdiff(names(exploration), c("Stream Name", "Latitude", "Longitude"))
@@ -285,7 +283,6 @@ site_map <- leaflet(all_drivers_map,
   options = leafletOptions(minZoom = 1, zoomSnap = 0, scrollWheelZoom = "center", maxBoundsViscosity = 1)) %>%
   addProviderTiles(providers$Esri.WorldTopoMap) %>%
   setMaxBounds(lng1 = -540, lat1 = -85.051129, lng2 = 540, lat2 = 85.051129)
-chemistry_dates <- range(master_chem$date, na.rm = TRUE)
 
 # ---- shared colors and plot style ----
 app_ink <- "#24323d"
@@ -538,3 +535,49 @@ partner_logo <- function(name, file = NULL, crop = NULL) {
   }
   tags$div(class = "partner-tile", tags$div(class = "partner-mark", mark), tags$span(name))
 }
+
+# ---- prepare directory cells once for all sessions ----
+delayedAssign("directory_rows", {
+  directory <- all_drivers_table
+  # place the labeled sources next to the site name
+  links <- lapply(source_columns, function(column) {
+    values <- directory[[column]]
+    sources <- unique(values)
+    formatted <- vapply(sources, function(value) {
+      source_entry(value, source_labels[[column]])
+    }, character(1))
+    formatted[match(values, sources)]
+  })
+  sites <- directory[c("Observation Network", "Country", "Stream Name")]
+  sites[["Solute Coverage"]] <- vapply(sites[["Stream Name"]], function(site) {
+    coverage <- site_chemistry[[site]]
+    if (!length(coverage$variable)) return("No chemistry records")
+    rows <- paste0("<tr><td>", htmltools::htmlEscape(solute_notation(coverage$variable)),
+      "</td><td>", coverage$first_year, "</td><td>", coverage$last_year,
+      "</td><td>", format(coverage$observations, big.mark = ",", trim = TRUE), "</td></tr>")
+    paste0("<details><summary>", length(coverage$variable), " of ", length(solute_choices),
+      " solutes</summary><table class='solute-coverage-detail small mt-2'>",
+      "<thead><tr><th scope='col'>Solute</th><th scope='col'>First year</th>",
+      "<th scope='col'>Last year</th><th scope='col'>Observations</th></tr></thead>",
+      "<tbody>", paste(rows, collapse = ""), "</tbody></table></details>")
+  }, character(1))
+  pairs <- as.integer(paired_counts[match(sites[["Stream Name"]], names(paired_counts))])
+  pairs[is.na(pairs)] <- 0L
+  sites[["Has Discharge"]] <- directory[["Has Discharge"]]
+  sites[["Flagged for WRTDS"]] <- directory[["WRTDS"]]
+  sites[["C–Q Pairs"]] <- pairs
+  sites[["Source Links"]] <- vapply(seq_len(nrow(sites)), function(index) {
+    entries <- vapply(links, function(column) column[index], character(1))
+    entries <- entries[nzchar(entries)]
+    if (!length(entries)) return("No source links listed")
+    as.character(tags$details(tags$summary("View sources"),
+      tags$div(class = "small mt-2", HTML(paste(entries, collapse = "<br>")))))
+  }, character(1))
+  sites[["Latitude (°)"]] <- directory$Latitude
+  sites[["Longitude (°)"]] <- directory$Longitude
+  # sort the expandable coverage cells by the underlying count
+  sites[["Solute Count"]] <- vapply(sites[["Stream Name"]], function(site) {
+    length(site_chemistry[[site]]$variable)
+  }, integer(1))
+  sites
+}, eval.env = environment(), assign.env = environment())

@@ -1,6 +1,7 @@
 # ---- user interface ----
 overview_ui <- navbarPage(
   title = NULL,
+  id = "app_tab",
   windowTitle = "Global River Chemistry",
   theme = bslib::bs_theme(version = 5, primary = app_blue, secondary = app_teal,
     fg = app_ink, bg = "#f4f7f6", base_font = "Arial"),
@@ -269,7 +270,7 @@ overview_ui <- navbarPage(
           tags$div(tags$strong(format(nrow(all_drivers_table), big.mark = ",")), tags$span("Stream sites")),
           tags$div(tags$strong(nlevels(all_drivers_table$Country)), tags$span("Countries and regions")),
           tags$div(tags$strong(nlevels(all_drivers_table[["Observation Network"]])), tags$span("Observation networks")),
-          tags$div(tags$strong(length(unique(master_chem$variable))), tags$span("Solutes"))
+          tags$div(tags$strong(length(summaries$solutes)), tags$span("Solutes"))
         )
       ),
       tags$section(class = "project-section",
@@ -480,7 +481,7 @@ overview_ui <- navbarPage(
             analysis_controls(
               radioButtons(inputId = "button_solute4",
                 label = "Solute",
-                choices = solute_choices[solute_choices %in% cq_all_nodups$variable], selected = "Ca"),
+                choices = solute_choices[solute_choices %in% summaries$paired_solutes], selected = "Ca"),
               selectInput(inputId = "dropdown_country4",
                 label = "Country",
                 choices = paired_countries, selected = "United States",
