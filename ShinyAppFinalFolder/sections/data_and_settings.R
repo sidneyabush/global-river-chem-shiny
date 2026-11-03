@@ -1,18 +1,22 @@
 # ---- read in data for tables, plotting, mapping ----
 
-# load in cleaned data files
+# summarize observations without making filtered copies of the full table
 master_chem <- readRDS(data_files[["Master_Chem_20261029.rds"]])
-
-
-# use the checked chemistry and discharge pairs
-cq_all_nodups <- readRDS(data_files[["CQ_20261029.rds"]])
-
-# create summary file for solute record plot
-master_chem_summary <- master_chem %>%
-  dplyr::filter(is.finite(value)) %>%
-  dplyr::group_by(year, variable) %>%
-  dplyr::summarise(num_streams = n_distinct(Stream_Name),
-    num_observations = dplyr::n(), .groups = "drop")
+data.table::setDT(master_chem)
+data.table::set(master_chem, j = c("LTER", "units"), value = NULL)
+master_chem_summary <- master_chem[is.finite(value),
+  .(num_streams = data.table::uniqueN(Stream_Name), num_observations = .N),
+  by = .(year, variable)]
+site_chemistry <- master_chem[is.finite(value),
+  .(first_year = min(year), last_year = max(year), observations = .N),
+  by = .(Stream_Name, variable)]
+site_chemistry <- split(as.data.frame(site_chemistry), site_chemistry$Stream_Name)
+solute_means <- master_chem[, .(value = mean(value, na.rm = TRUE)),
+  by = .(Stream_Name, variable)]
+solute_means <- tidyr::pivot_wider(as.data.frame(solute_means),
+  names_from = variable, values_from = value)
+data.table::setDF(master_chem)
+data.table::setDF(master_chem_summary)
 
 # put the solutes with the most observations at the top of the plot
 solute_observation_totals <- master_chem_summary %>%
@@ -144,6 +148,10 @@ all_drivers_map <- all_drivers_table %>% select(-all_of(source_columns), -all_of
 # use the site reference country in the chemistry controls
 site_countries <- setNames(all_drivers_table$Country, all_drivers_table[["Stream Name"]])
 master_chem$Country <- unname(site_countries[master_chem$Stream_Name])
+# load the paired records after the chemistry summaries are ready
+invisible(gc())
+cq_all_nodups <- readRDS(data_files[["CQ_20261029.rds"]])
+cq_all_nodups <- cq_all_nodups[c("Stream_Name", "variable", "value", "Qcms")]
 cq_all_nodups$Country <- unname(site_countries[cq_all_nodups$Stream_Name])
 chemistry_countries <- sort(unique(as.character(master_chem$Country)))
 paired_countries <- sort(unique(as.character(cq_all_nodups$Country)))
@@ -216,21 +224,12 @@ driver_choices <- function(fields) {
   split(choices, factor(groups, levels = group_order), drop = TRUE)
 }
 
-# summarize site coverage from the records used in the app
-site_chemistry <- master_chem %>%
-  filter(is.finite(value)) %>%
-  group_by(Stream_Name, variable) %>%
-  summarise(first_year = min(year, na.rm = TRUE), last_year = max(year, na.rm = TRUE),
-    observations = n(), .groups = "drop")
-site_chemistry <- split(site_chemistry, site_chemistry$Stream_Name)
+# count usable chemistry and discharge pairs by site
 paired_counts <- table(cq_all_nodups$Stream_Name[which(
   is.finite(cq_all_nodups$Qcms) & cq_all_nodups$Qcms > 0 &
     is.finite(cq_all_nodups$value) & cq_all_nodups$value > 0)])
 
-# add site means for the displayed solutes
-solute_means <- master_chem %>% group_by(Stream_Name, variable) %>%
-  summarise(value = mean(value, na.rm = TRUE), .groups = "drop") %>%
-  tidyr::pivot_wider(names_from = variable, values_from = value)
+# add site means to the map and exploration data
 exploration <- left_join(all_drivers_map, solute_means, by = c("Stream Name" = "Stream_Name"))
 map_color_options <- setdiff(names(exploration), c("Stream Name", "Latitude", "Longitude"))
 quant_drivers <- setdiff(names(exploration)[vapply(exploration, is.numeric, logical(1))],

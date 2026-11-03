@@ -4,7 +4,7 @@ if (getRversion() < "4.4") {
   stop("Please install R 4.4 or newer before running this app.", call. = FALSE)
 }
 
-packages <- c("shiny", "bslib", "dplyr", "tidyr", "leaflet", "ggplot2", "ggpmisc",
+packages <- c("shiny", "data.table", "bslib", "dplyr", "tidyr", "leaflet", "ggplot2", "ggpmisc",
   "lubridate", "DT", "htmltools", "htmlwidgets")
 missing_packages <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]
 
