@@ -26,13 +26,18 @@ summarize_spatial <- function(spatial, metadata, npp_to_grams) {
 
   # keep the source window and the exact years behind each site average
   year_coverage <- list()
-  average_years <- function(label, pattern, period, convert = identity) {
+  average_years <- function(label, pattern, period = NULL, convert = identity) {
     columns <- grep(pattern, names(spatial), value = TRUE)
     stopifnot(length(columns) > 0)
     years <- as.integer(sub(".*_([0-9]{4})$", "\\1", columns))
     stopifnot(!anyDuplicated(years), !anyNA(years))
     values <- as.matrix(as.data.frame(lapply(spatial[columns], convert)))
     available <- is.finite(values)
+    if (is.null(period)) {
+      # use only years with values in the supplied release
+      reported_years <- years[colSums(available) > 0L]
+      period <- if (length(reported_years)) paste(unique(range(reported_years)), collapse = "–") else "No data"
+    }
     values[!available] <- NA_real_
     means <- rowMeans(values, na.rm = TRUE)
     means[is.nan(means)] <- NA_real_
@@ -47,11 +52,11 @@ summarize_spatial <- function(spatial, metadata, npp_to_grams) {
 
   annual_drivers <- list(
     "Annual Maximum Snow Cover (fraction)" = average_years("Annual Maximum Snow Cover (fraction)", "^snow_cover_[0-9]{4}$", "2000–2025"),
-    "Precipitation (mm/year)" = average_years("Precipitation (mm/year)", "^precip_[0-9]{4}$", "2000–2025"),
-    "Evapotranspiration (mm/year)" = average_years("Evapotranspiration (mm/year)", "^et_[0-9]{4}$", "2000–2025"),
-    "Potential Evaporation (mm/year)" = average_years("Potential Evaporation (mm/year)", "^pet_[0-9]{4}$", "2000–2025"),
+    "Precipitation (mm/year)" = average_years("Precipitation (mm/year)", "^precip_[0-9]{4}$"),
+    "Evapotranspiration (mm/year)" = average_years("Evapotranspiration (mm/year)", "^et_[0-9]{4}$"),
+    "Potential Evaporation (mm/year)" = average_years("Potential Evaporation (mm/year)", "^pet_[0-9]{4}$"),
     "Peak Snow Water Equivalent (mm)" = average_years("Peak Snow Water Equivalent (mm)", "^snow_swe_[0-9]{4}$", "2000–2025"),
-    "Mean Annual Temperature (deg C)" = average_years("Mean Annual Temperature (deg C)", "^temp_[0-9]{4}$", "2000–2025"),
+    "Mean Annual Temperature (deg C)" = average_years("Mean Annual Temperature (deg C)", "^temp_[0-9]{4}$"),
     "NPP (g C/m2/year)" = average_years("NPP (g C/m2/year)", "^npp_[0-9]{4}$", "2001–2025") * npp_to_grams,
     "GPP (g C/m2/year)" = average_years("GPP (g C/m2/year)", "^gpp_[0-9]{4}$", "1982–2022"),
     "First Greenup (day of year)" = average_years("First Greenup (day of year)", "^greenup_c0_[0-9]{4}$", "2001–2024", greenup_day),

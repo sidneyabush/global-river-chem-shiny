@@ -130,6 +130,21 @@ treatment_fields <- paste(c("Primary", "Secondary", "Advanced"), "Wastewater Tre
 is_treatment <- names(all_drivers_table) %in% treatment_fields
 names(all_drivers_table)[is_treatment] <- paste(names(all_drivers_table)[is_treatment], "(count)")
 names(spatial_years) <- display_units(names(spatial_years))
+
+# show the same climate period in the product table and plot labels
+climate_fields <- c(
+  "Mean annual precipitation (MAP)" = "Precipitation (mm yr⁻¹)",
+  "Mean annual temperature (MAT)" = "Mean Annual Temperature (°C)",
+  "Evapotranspiration (ET)" = "Evapotranspiration (mm yr⁻¹)",
+  "Potential evaporation (PET)" = "Potential Evaporation (mm yr⁻¹)"
+)
+for (label in names(climate_fields)) {
+  coverage <- spatial_years[[climate_fields[[label]]]]
+  if (!is.null(coverage)) {
+    row <- data_source_table[["Data product"]] == "ERA5-Land" & data_source_table$Variable == label
+    data_source_table[["Period or timing"]][row] <- paste0(coverage$period, "; annual")
+  }
+}
 source_labels <- c("Chemistry Data" = "Chemistry", "Discharge Data" = "Discharge",
   "Watershed Boundary" = "Watershed boundary", "Drainage Area Source" = "Drainage area")
 source_columns <- names(source_labels)
