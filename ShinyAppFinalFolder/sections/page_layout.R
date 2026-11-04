@@ -424,7 +424,9 @@ overview_ui <- navbarPage(
             actionButton("clear_comparison_sites", "Clear selected sites")
           ),
           tags$div(
-            tags$p("Click up to three markers to compare sites. Click a selected marker again to remove it. Changing filters removes selected sites that no longer match."),
+            tags$p("Click up to three markers to compare sites. ",
+              "To remove a site, click × in its row or click its marker again. ",
+              "Changing filters removes sites that no longer match."),
             textOutput("comparison_map_count"),
             uiOutput("comparison_selection"),
             leafletOutput("comparison_map", height = "420px")

@@ -298,23 +298,15 @@ app_border <- "#d7e3ea"
 app_missing <- "#a8b8be"
 app_numeric_colors <- c(app_light, "#76adb1", app_teal)
 
-category_colors <- function(count) {
-  colors <- c(app_blue, app_teal, "#a96c21", "#796189", "#58763e", "#a65753",
-    "#397e9b", "#937245", "#64679b", "#3c8372", "#93657e", "#576b80")
-  if (count <= length(colors)) return(head(colors, count))
+# use contrasting accents for adjacent comparison panels and selected sites
+comparison_accents <- c(app_blue, "#bb4d14", "#1b7a55", "#824695")
 
-  # extend the app's accent colors with darker and lighter shades
-  shades <- vapply(colors, function(color) {
-    dark <- grDevices::colorRampPalette(c(color, app_ink))(4)[2]
-    light <- grDevices::colorRampPalette(c(color, app_light))(7)[3:4]
-    c(dark, light)
-  }, character(3))
-  rep_len(c(colors, as.vector(t(shades))), count)
-}
-
-app_category_scale <- function() {
-  discrete_scale(c("colour", "fill"), palette = category_colors, na.value = app_missing)
-}
+# name each color by solute so changing the selection keeps its color
+solute_colors <- c(
+  DSi = "#0072b2", NO3 = "#bb4d14", NOx = "#008260", NH4 = "#9c377c",
+  DIP = "#9a7300", TN = "#573985", TP = "#a0293e", Ca = "#358b9a",
+  Mg = "#556a26", K = "#805235", Na = "#193761", Cl = "#ce6688", SO4 = "#565a60"
+)
 
 # round displayed labels while keeping the original values for calculations
 whole_number <- function(values) {

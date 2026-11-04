@@ -455,7 +455,7 @@ overview_server <- function(input, output, session) {
         values <- histogram_values(variable)
         validate(need(length(values) > 0L, "No matching sites have data for this variable."))
         ggplot(data.frame(value = values), aes(x = value)) +
-          geom_histogram(bins = 50, fill = app_blue, colour = "white") +
+          geom_histogram(bins = 50, fill = comparison_accents[slot], colour = "white") +
           app_plot_theme() +
           labs(x = spatial_label(variable), y = "Sites") +
           scale_x_continuous(labels = whole_number) + scale_y_continuous(labels = whole_number)
@@ -550,11 +550,18 @@ overview_server <- function(input, output, session) {
     }
   })
 
+  # remove only the site named by the row button
+  observeEvent(input$remove_comparison_site, {
+    selected <- comparison_selection()
+    req(input$remove_comparison_site %in% selected)
+    picked_sites(setdiff(selected, input$remove_comparison_site))
+  })
+
   observeEvent(input$clear_comparison_sites, picked_sites(character()))
 
   comparison_colors <- reactive({
     sites <- comparison_selection()
-    setNames(category_colors(length(sites)), sites)
+    setNames(comparison_accents[seq_along(sites)], sites)
   })
 
   output$comparison_selection <- renderUI({
@@ -566,7 +573,7 @@ overview_server <- function(input, output, session) {
     rows <- comparison_map_sites()
     rows <- rows[match(sites, rows[["Stream Name"]]), , drop = FALSE]
     # show the same site information for every selection, regardless of the plot
-    headings <- c("Stream name", "Observation network", "Country")
+    headings <- c("Stream name", "Observation network", "Country", "Remove")
     tags$div(count,
       tags$div(class = "table-responsive",
         tags$table(class = "table table-sm",
@@ -579,7 +586,12 @@ overview_server <- function(input, output, session) {
                 tags$span(class = "map-legend-swatch", `aria-hidden` = "true",
                   style = paste0("background-color: ", colors[[site]])), site),
               tags$td(as.character(rows[["Observation Network"]][index])),
-              tags$td(as.character(rows$Country[index]))
+              tags$td(as.character(rows$Country[index])),
+              tags$td(tags$button(type = "button", class = "btn btn-outline-secondary btn-sm py-0",
+                `aria-label` = paste("Remove", site, "from comparison"),
+                `data-site` = site,
+                onclick = "Shiny.setInputValue('remove_comparison_site', this.dataset.site, {priority: 'event'})",
+                tags$span(`aria-hidden` = "true", "×")))
             )
           }))
         )
@@ -766,11 +778,11 @@ overview_server <- function(input, output, session) {
       if (isTRUE(input$site_time_series_log)) "No positive concentrations to plot." else "No data for the selected solutes."))
 
     if (show_site_time_series()) {
-      plot <- ggplot(rows, aes(date, value, colour = solute_notation(variable))) +
+      plot <- ggplot(rows, aes(date, value, colour = variable)) +
         geom_point() + labs(x = "Date", colour = "Solute")
       if (length(input$xslider) == 2L) plot <- plot + xlim(input$xslider)
     } else {
-      plot <- ggplot(rows, aes(factor(month(date)), value, fill = solute_notation(variable))) +
+      plot <- ggplot(rows, aes(factor(month(date)), value, fill = variable)) +
         geom_boxplot() + labs(x = "Month", fill = "Solute")
     }
 
@@ -780,7 +792,9 @@ overview_server <- function(input, output, session) {
       scale_y_continuous(labels = whole_number)
     }
     plot + labs(y = "Concentration (mg L⁻¹)") + concentration_scale +
-      app_plot_theme() + theme(legend.position = "bottom") + app_category_scale()
+      app_plot_theme() + theme(legend.position = "bottom") +
+      scale_colour_manual(values = solute_colors, labels = solute_notation,
+        aesthetics = c("colour", "fill"))
   })
 
 } # close server function
