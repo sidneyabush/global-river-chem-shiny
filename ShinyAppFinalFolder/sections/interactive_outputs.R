@@ -265,7 +265,7 @@ overview_server <- function(input, output, session) {
         function(el, x, data) {
           const legend = el.parentElement.querySelector('#availability_legend');
           if (legend) legend.innerHTML = data.legend;
-          const map = this.getMap();
+          const map = this;
           function keepTilesInView() {
             const height = el.clientHeight;
             if (height <= 0) return;
